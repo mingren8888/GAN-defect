@@ -6,13 +6,14 @@ from torch.utils.data import DataLoader
 import torchvision as tv
 from tqdm.autonotebook import tqdm
 from model import *
+from defect import DefectAdder
 
 
 class Config(object):
-    data_path = '/data/sdv2/GAN/data/anime/'
-    num_workers = 4
+    data_path = r'C:\Users\PC\Pictures\test'
+    num_workers = 0
     image_size = 96
-    batch_size = 32
+    batch_size = 2
     max_epoch = 30
     lr1 = 2e-4
     lr2 = 2e-4
@@ -71,6 +72,9 @@ optimizer_g = optim.Adam(netg.parameters(), opt.lr1, betas=(opt.beta1, 0.999))
 optimizer_d = optim.Adam(netd.parameters(), opt.lr2, betas=(opt.beta1, 0.999))
 
 criterion = nn.BCELoss()
+contrast_criterion = nn.L1Loss(reduction='mean')
+
+defect_adder = DefectAdder()
 
 true_labels = torch.ones(opt.batch_size)
 fake_labels = torch.zeros(opt.batch_size)
@@ -89,6 +93,7 @@ if opt.use_gpu:
 for epoch in range(opt.max_epoch):
     progressbar = tqdm(dataloader)
     for ii, (img, _) in enumerate(progressbar):
+        defect_img = defect_adder(img)
         real_img = torch.Tensor(img)
         if opt.use_gpu:
             real_img = real_img.cuda()
