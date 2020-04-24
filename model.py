@@ -1,7 +1,19 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torchvision as tv
 
+
+
+class Interpolation(nn.Module):
+    def __init__(self, size=None, scale_factor=(2.0, 2.0), mode='bilinear'):
+        super(Interpolation, self).__init__()
+        self.size = size
+        self.scale_factor = scale_factor
+        self.mode = mode
+
+    def forward(self, input):
+        return F.interpolate(input, size=self.size, scale_factor=self.scale_factor, mode=self.mode)
 
 class Generater(nn.Module):
     def __init__(self, opt):
@@ -54,6 +66,7 @@ class Generater(nn.Module):
         x = self.decoder(x)
         return x
 
+
 class Discriminator(nn.Module):
     def __init__(self, opt):
         super(Discriminator, self).__init__()
@@ -62,22 +75,25 @@ class Discriminator(nn.Module):
             nn.Conv2d(3, ndf, 5, 3, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(ndf, ndf*2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf*2),
+            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(ndf*2, ndf*4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf*4),
+            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
 
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(ndf*8, 1, 4, 1, 0, bias=False),
+            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
 
         )
 
     def forward(self, input):
         return self.main(input).view(-1)
+
+
+
