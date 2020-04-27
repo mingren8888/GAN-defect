@@ -14,24 +14,27 @@ import os
 
 
 class Config(object):
-    data_path = r'/data/sdv2/GAN/data/gan_defect/GRID'
-    save_path = '/data/sdv2/GAN/GAN_defect/imgs/0426-1'
-    work_dir = '/data/sdv2/GAN/GAN_defect/workdirs/0426-1'
+    data_path = r'/data/sdv2/GAN/data/gan_defect/grid_96/train'
+    val_path = r'/data/sdv2/GAN/data/gan_defect/grid_96/val'
+    save_path = '/data/sdv2/GAN/GAN_defect/imgs/0427-2'
+    work_dir = '/data/sdv2/GAN/GAN_defect/workdirs/0427-2'
+    val_save_path = '/data/sdv2/GAN/GAN_defect/imgs/0427-2-val'
 
-    with_segmentation = True
+    with_segmentation = False
     num_workers = 4
-    image_size = 96
+    image_size = 192
     batch_size = 16
-    max_epoch = 150
-    steps = [100, 130]
-    lrg = 1e-5
-    lrd = 1e-5
+    max_epoch = 1000
+    steps = [600, 800, 900]
+    lrg = 1e-4
+    lrd = 1e-4
     lrs = 1e-2
     beta1 = 0.5
     use_gpu = True
-    nz = 100
+    nz = 2048
     ngf = 64
     ndf = 64
+    defect_mode = 'geometry'
 
     contrast_loss_weight = 1
 
@@ -61,6 +64,7 @@ class Config(object):
     checkpoint_interval = 100
 
     debug = True
+    validate = True
 
 
 def train(opt):
@@ -68,7 +72,7 @@ def train(opt):
         tv.transforms.Resize(opt.image_size),
         tv.transforms.CenterCrop(opt.image_size),
         # tv.transforms.ToTensor(),
-        DefectAdder(),
+        DefectAdder(mode=opt.defect_mode, defect_shape=('line',)),
         ToTensorList(),
         NormalizeList(opt.mean, opt.std),
         # tv.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -88,10 +92,12 @@ def train(opt):
 
     if opt.netd_path:
         print('loading checkpoint for discriminator...')
-        netd.load_state_dict(torch.load(opt.netd_path, map_location=map_location)['net'])
+        checkpoint = modify_checkpoint(netd, torch.load(opt.netd_path, map_location=map_location)['net'])
+        netd.load_state_dict(checkpoint, strict=False)
     if opt.netg_path:
         print('loading checkpoint for generator...')
-        netg.load_state_dict(torch.load(opt.netg_path, map_location=map_location)['net'])
+        checkpoint = modify_checkpoint(netg, torch.load(opt.netg_path, map_location=map_location)['net'])
+        netg.load_state_dict(checkpoint, strict=False)
 
     optimizer_g = optim.Adam(netg.parameters(), opt.lrg, betas=(opt.beta1, 0.999))
     optimizer_d = optim.Adam(netd.parameters(), opt.lrd, betas=(opt.beta1, 0.999))
@@ -114,6 +120,7 @@ def train(opt):
         netg.cuda()
         seg_model.cuda()
         criterion.cuda()
+        contrast_criterion.cuda()
         true_labels, fake_labels = true_labels.cuda(), fake_labels.cuda()
         # fix_noises, noises = fix_noises.cuda(), noises.cuda()
 
@@ -126,12 +133,6 @@ def train(opt):
         g_loss = AverageMeter()
         c_loss = AverageMeter()
         s_loss = AverageMeter()
-        if (epoch + 1) % opt.checkpoint_interval == 0:
-            state_d = {'net': netd.state_dict(), 'optimizer': optimizer_d.state_dict(), 'epoch': epoch}
-            state_g = {'net': netg.state_dict(), 'optimizer': optimizer_g.state_dict(), 'epoch': epoch}
-            print('saving checkpoints...')
-            torch.save(state_d, os.path.join(opt.work_dir, f'd_ckpt_e{epoch + 1}.pth'))
-            torch.save(state_g, os.path.join(opt.work_dir, f'g_ckpt_e{epoch + 1}.pth'))
         for ii, (imgs, _) in enumerate(progressbar):
             normal, defect, target = imgs
             if opt.use_gpu:
@@ -155,7 +156,6 @@ def train(opt):
                 optimizer_d.step()
                 d_loss.update(error_d_real + error_d_fake)
 
-
             if (ii + 1) % opt.g_every == 0:
                 # train generator
                 optimizer_g.zero_grad()
@@ -164,7 +164,7 @@ def train(opt):
                 fake_output = netd(fake_img)
 
                 error_g = criterion(fake_output, true_labels)
-                error_c = contrast_criterion(normal, fake_img)
+                error_c = contrast_criterion(fake_img, normal)
                 losses = error_g + opt.contrast_loss_weight * error_c
                 losses.backward()
                 optimizer_g.step()
@@ -192,26 +192,6 @@ def train(opt):
                 optimizer_s.step()
                 s_loss.update(loss)
 
-                metrics = []
-                lbl_pred = seg_output.data.max(1)[1].cpu().numpy()[:, :, :]
-                lbl_true = target.data.cpu().numpy()
-                acc, acc_cls, mean_iu, fwavacc = \
-                    label_accuracy_score(
-                        lbl_true, lbl_pred, n_class=2)
-                metrics.append((acc, acc_cls, mean_iu, fwavacc))
-                metrics = np.mean(metrics, axis=0)
-                # print(metrics)
-
-
-                # if opt.debug:
-                #     if not os.path.exists(opt.save_path):
-                #         os.makedirs(opt.save_path)
-                #     target = target.float()
-                #     segs = torch.cat((target, seg_output), 0)
-                #     tv.utils.save_image(segs, os.path.join(opt.save_path, '{}_seg_result.jpg'.format(ii)),
-                #                         normalize=True,
-                #                         range=(-1, 1))
-
             progressbar.set_description(
                 'Epoch: {}. Step: {}. Discriminator loss: {:.5f}. Generator loss: {:.5f}. Contrast loss: {:.5f}. Segmentation loss: {:.5f}'.format(
                     epoch, ii, d_loss.getavg(), g_loss.getavg(), c_loss.getavg(), s_loss.getavg()))
@@ -220,9 +200,71 @@ def train(opt):
         scheduler_g.step(epoch=epoch)
         if epoch >= opt.s_start and opt.with_segmentation:
             scheduler_s.step(epoch=epoch)
+        if opt.validate:
+            validate(opt, netd, netg, seg_model)
+
+        if (epoch + 1) % opt.checkpoint_interval == 0:
+            state_d = {'net': netd.state_dict(), 'optimizer': optimizer_d.state_dict(), 'epoch': epoch}
+            state_g = {'net': netg.state_dict(), 'optimizer': optimizer_g.state_dict(), 'epoch': epoch}
+            print('saving checkpoints...')
+            torch.save(state_d, os.path.join(opt.work_dir, f'd_ckpt_e{epoch + 1}.pth'))
+            torch.save(state_g, os.path.join(opt.work_dir, f'g_ckpt_e{epoch + 1}.pth'))
 
 
+def validate(opt, netd, netg, nets):
+    netd.eval()
+    netg.eval()
+    nets.eval()
+    transforms = tv.transforms.Compose([
+        tv.transforms.Resize(opt.image_size),
+        tv.transforms.CenterCrop(opt.image_size),
+        # tv.transforms.ToTensor(),
+        DefectAdder(mode=opt.defect_mode, defect_shape=('line',)),
+        ToTensorList(),
+        NormalizeList(opt.mean, opt.std),
+        # tv.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
 
+    dataset = tv.datasets.ImageFolder(opt.val_path, transform=transforms)
+    dataloader = DataLoader(dataset,
+                            batch_size=opt.batch_size,
+                            shuffle=True,
+                            num_workers=opt.num_workers,
+                            drop_last=True)
+
+    progressbar = tqdm(dataloader)
+    for ii, (imgs, _) in enumerate(progressbar):
+        normal, defect, target = imgs
+        if opt.use_gpu:
+            normal = normal.cuda()
+            defect = defect.cuda()
+            target = target.cuda()
+        repair = netg(defect)
+        if opt.with_segmentation:
+            seg_input = torch.cat([defect, repair], dim=1)
+            seg = nets(seg_input)
+        else:
+            seg = None
+
+        if opt.with_segmentation:
+            metrics = []
+            lbl_pred = seg.data.max(1)[1].cpu().numpy()[:, :, :]
+            lbl_true = target.data.cpu().numpy()
+            acc, acc_cls, mean_iu, fwavacc = \
+                label_accuracy_score(
+                    lbl_true, lbl_pred, n_class=2)
+            metrics.append((acc, acc_cls, mean_iu, fwavacc))
+            metrics = np.mean(metrics, axis=0)
+            progressbar.set_description(
+                f'Acc: {metrics[0]:.5f}, Acc_cls: {metrics[1]:.5f}, MIU: {metrics[2]:.5f}, Fwavacc: {metrics[3]:.5f}')
+        if opt.debug:
+            if not os.path.exists(opt.val_save_path):
+                os.makedirs(opt.val_save_path)
+
+            imgs = torch.cat((defect, repair), 0)
+            tv.utils.save_image(imgs, os.path.join(opt.val_save_path, '{}_defect_repair.jpg'.format(ii)),
+                                normalize=True,
+                                range=(-1, 1))
 
 
 if __name__ == '__main__':

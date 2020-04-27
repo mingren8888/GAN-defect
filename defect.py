@@ -8,16 +8,19 @@ import itertools
 
 
 class DefectAdder(object):
-    def __init__(self, mode='geometry', resize=True, size_range=(0.05, 0.6), defect_shape=('circle', 'square')):
+    def __init__(self, mode='geometry', size_range=(0.05, 0.6), defect_shape=('circle', 'square')):
         self.mode = mode
-        self.resize = resize
         self.size_range = size_range
         self.defect_shape = defect_shape
 
     def __call__(self, input):
         # assert isinstance(input, Image)
         # assert len(input.shape) == 3
-        output, target = self.add_defect(input)
+        if self.mode == 'geometry':
+            output, target = self.add_defect(input)
+        else:
+            output = input
+            target = input
         return [input, output, target]
 
     def add_defect(self, input):
@@ -27,12 +30,21 @@ class DefectAdder(object):
         size_ratio = np.random.uniform(self.size_range[0], self.size_range[1])
         x = int(np.random.random() * w)
         y = int(np.random.random() * h)
-        size = int(size_ratio * min(w, h) * 0.5)
+        size = int(size_ratio * min(w, h))
         color = tuple(np.random.randint(0, 255, 3))
         if shape == 'circle':
             draw.ellipse([x, y, x + size, y + size], fill=color)
         elif shape == 'square':
             draw.rectangle([x, y, x + size, y + size], fill=color)
+        elif shape == 'line':
+            while True:
+                x1 = int(np.random.random() * w)
+                y1 = int(np.random.random() * h)
+                width = int(np.random.randint(1, size))
+                if x1 == x or y1 == y:
+                    continue
+                draw.line([x, y, x1, y1], fill=color, width=width)
+                break
         target = self.generate_target(input.size, shape, [x, y, x + size, y + size])
         return input, target
 
@@ -52,6 +64,8 @@ class DefectAdder(object):
                 p = np.array([i, j])
                 if np.all(((p - p0) > 0) & ((p1 - p) > 0)):
                     target[i, j] = 1
+        elif mode == 'line':
+            pass
         return target
 
     def __repr__(self):
@@ -85,7 +99,7 @@ class NormalizeList(object):
         Returns:
             Tensors: Normalized Tensor image.
         """
-        for i in range(len(tensors)-1):
+        for i in range(len(tensors) - 1):
             tensors[i] = FL.normalize(tensors[i], self.mean, self.std, self.inplace)
         return tensors
 

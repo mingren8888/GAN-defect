@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision as tv
+import math
 
 
 
@@ -20,26 +21,43 @@ class Generater(nn.Module):
         super(Generater, self).__init__()
         ngf = opt.ngf
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, ngf, 5, 3, 1, bias=False),
-            nn.ReLU(),
+            # nn.Conv2d(3, ngf, 5, 3, 1, bias=False),
+            # nn.ReLU(),
+            # stem/s2
+            nn.Conv2d(3, ngf, kernel_size=7, stride=2, padding=3, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
 
+            # s4
             nn.Conv2d(ngf, ngf * 2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(),
-
+            # s8
             nn.Conv2d(ngf * 2, ngf * 4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 4),
             nn.ReLU(),
-
+            # s16
             nn.Conv2d(ngf * 4, ngf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(),
+            # s32
+            nn.Conv2d(ngf * 8, ngf * 16, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 16),
+            nn.ReLU(),
 
-            nn.Conv2d(ngf * 8, opt.nz, 4, 1, 0, bias=False),
+            nn.Conv2d(ngf * 16, opt.nz, 4, 1, 0, bias=False),
+            nn.AdaptiveAvgPool2d(1)
             # nn.Sigmoid()
         )
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(opt.nz, ngf * 8, 4, 1, 0, bias=False),
+            #linear
+            nn.Linear(opt.nz, math.ceil(opt.image_size/32)**2*16*ngf),
+
+            nn.ConvTranspose2d(opt.nz, ngf * 16, 4, 1, 0, bias=False),
+            nn.BatchNorm2d(ngf * 16),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(ngf * 16, ngf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(),
 
@@ -88,6 +106,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
 
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+            nn.AdaptiveAvgPool2d(1),
             nn.Sigmoid()
 
         )

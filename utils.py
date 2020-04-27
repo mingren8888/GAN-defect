@@ -1,4 +1,5 @@
 import numpy as np
+from collections import OrderedDict
 
 
 class AverageMeter(object):
@@ -53,3 +54,18 @@ def _fast_hist(label_true, label_pred, n_class):
         n_class * label_true[mask].astype(int) +
         label_pred[mask], minlength=n_class ** 2).reshape(n_class, n_class)
     return hist
+
+def modify_checkpoint(model, checkpoint):
+    model_state_dict = model.state_dict()
+    checkpoint = checkpoint.copy()
+    new_ckpt = OrderedDict()
+    for k, v in checkpoint.items():
+        if k not in model_state_dict.keys():
+            continue
+        else:
+            model_p = model_state_dict[k]
+            if v.shape != model_p.shape:
+                continue
+        new_ckpt[k] = v
+    print(new_ckpt.keys())
+    return new_ckpt
