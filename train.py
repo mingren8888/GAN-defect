@@ -14,24 +14,31 @@ import os
 
 
 class Config(object):
-    data_path = r'/data/sdv2/GAN/data/gan_defect/grid_96/train'
-    val_path = r'/data/sdv2/GAN/data/gan_defect/grid_96/val'
-    save_path = '/data/sdv2/GAN/GAN_defect/imgs/0427-2'
-    work_dir = '/data/sdv2/GAN/GAN_defect/workdirs/0427-2'
-    val_save_path = '/data/sdv2/GAN/GAN_defect/imgs/0427-2-val'
+    # data_path = r'/data/sdv2/GAN/data/gan_defect/grid_96/train'
+    # val_path = r'/data/sdv2/GAN/data/gan_defect/grid_96/val'
+    # save_path = '/data/sdv2/GAN/GAN_defect/imgs/0427-2'
+    # work_dir = '/data/sdv2/GAN/GAN_defect/workdirs/0427-2'
+    # val_save_path = '/data/sdv2/GAN/GAN_defect/imgs/0427-2-val'
+
+    data_path = r'/data/sdv2/GAN/data/gan_defect/1GE02/train'
+    val_path = r'/data/sdv2/GAN/data/gan_defect/1GE02/val'
+    save_path = '/data/sdv2/GAN/GAN_defect/imgs/0427-1ge02'
+    work_dir = '/data/sdv2/GAN/GAN_defect/workdirs/0427-1ge02'
+    val_save_path = '/data/sdv2/GAN/GAN_defect/imgs/0427-1ge02-val'
 
     with_segmentation = False
     num_workers = 4
-    image_size = 192
+    image_size = 128
     batch_size = 16
-    max_epoch = 1000
-    steps = [600, 800, 900]
+    max_epoch = 2000
+    steps = [1000, 1500, 1800]
     lrg = 1e-4
-    lrd = 1e-4
+    lrd = 1e-5
     lrs = 1e-2
     beta1 = 0.5
     use_gpu = True
-    nz = 2048
+    nc = 3
+    nBottleneck = 4000
     ngf = 64
     ndf = 64
     defect_mode = 'geometry'
@@ -52,19 +59,13 @@ class Config(object):
     # netd_path = None
     # netg_path = None
 
-    gen_img = 'result.png'
-    gen_num = 64
-    gen_search_num = 512
-    gen_mean = 0
-    gen_std = 1
-
     mean = (0.5, 0.5, 0.5)
     std = (0.5, 0.5, 0.5)
 
     checkpoint_interval = 100
 
     debug = True
-    validate = True
+    validate = False
 
 
 def train(opt):
@@ -108,7 +109,7 @@ def train(opt):
     scheduler_s = torch.optim.lr_scheduler.MultiStepLR(optimizer_s, milestones=opt.steps, gamma=0.1)
 
     criterion = nn.BCELoss()
-    contrast_criterion = nn.L1Loss(reduction='mean')
+    contrast_criterion = nn.MSELoss()
 
     true_labels = torch.ones(opt.batch_size)
     fake_labels = torch.zeros(opt.batch_size)

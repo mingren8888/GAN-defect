@@ -1,5 +1,6 @@
 import numpy as np
 from collections import OrderedDict
+import torch
 
 
 class AverageMeter(object):
@@ -69,3 +70,10 @@ def modify_checkpoint(model, checkpoint):
         new_ckpt[k] = v
     print(new_ckpt.keys())
     return new_ckpt
+
+
+def elu(x, alpha):
+    if x >= 0:
+        return x
+    else:
+        return alpha * (torch.exp(x) - 1)
