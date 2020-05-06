@@ -8,14 +8,17 @@ import itertools
 
 
 class DefectAdder(object):
-    def __init__(self, mode='geometry', size_range=(0.05, 0.6), defect_shape=('circle', 'square')):
+    def __init__(self, mode='geometry', size_range=(0.05, 0.6), defect_shape=('circle', 'square'), normal_only=False):
         self.mode = mode
         self.size_range = size_range
         self.defect_shape = defect_shape
+        self.normal_only = normal_only
 
     def __call__(self, input):
         # assert isinstance(input, Image)
         # assert len(input.shape) == 3
+        if self.normal_only:
+            return [input, input, input]
         if self.mode == 'geometry':
             output, target = self.add_defect(input)
         else:
