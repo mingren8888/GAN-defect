@@ -1,7 +1,9 @@
 # GAN-defect
-This project is mainly based on the paper: [<A Surface Defect Detection Method
-Based on Positive Samples>](https://link.springer.com/chapter/10.1007/978-3-319-97310-4_54)  
+This project is mainly based on the paper: [A Surface Defect Detection Method
+Based on Positive Samples](https://link.springer.com/chapter/10.1007/978-3-319-97310-4_54).  
 The model details in this project may be not completely consistent to the model proposed in the paper.
+
+![model](demo/model.png)
 
 ## Requirements
 - pytorch 1.4.0
