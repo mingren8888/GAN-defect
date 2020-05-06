@@ -22,13 +22,13 @@ The defects can be randomly generated geometric shapes(deployed) or defect patch
 The following results come from a simple demo, in which the normal images are artifical grid images(randomly generated).
 
 ![train data example](demo/1.jpg)  
-*example train data*
+*train data example*
 
 ![train result example](demo/0_defect_repair.jpg)  
-*example train results(certain batch with 16 images)*
+*train results(certain batch with 16 images)*
 
 ![train result example](demo/0_defect_repair_val.jpg)  
-*example val results(certain batch with 16 images)*
+*val results(certain batch with 16 images)*
 
 In above result images, the top 2 lines shows the images with surface defect,
 and the bottom 2 lines show the corresponding repaired results.
